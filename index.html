@@ -1,0 +1,949 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>도토리섬</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Jua&family=Gowun+Dodum&display=swap">
+<style>
+:root{
+  /* Layout: full-bleed island canvas; small leaf-paper chips float at the corners; panels rise from the bottom like a notebook page */
+  --leaf:#2f6b3f;
+  --ink:#22392a;
+  --paper:#f3f8ea;
+  --paper-2:#e2edd2;
+  --sun:#f0b43c;
+  --wood:#8f6140;
+  --muted:#5b7262;
+  --sea:#2f8fb0;
+  --danger:#b9533b;
+  --display:"Jua","Gowun Dodum","Apple SD Gothic Neo","Malgun Gothic",system-ui,sans-serif;
+  --body:"Gowun Dodum","Apple SD Gothic Neo","Malgun Gothic",system-ui,sans-serif;
+  color-scheme:light;
+}
+html,body{height:100%}
+body{background:var(--sea);color:var(--ink);font-family:var(--body);overflow:hidden;touch-action:none;-webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent}
+#game{position:fixed;inset:0}
+#cv{display:block;width:100%;height:100%;outline:none}
+button{font-family:var(--display);color:var(--ink);cursor:pointer}
+button:focus-visible,input:focus-visible{outline:3px solid var(--sun);outline-offset:2px}
+
+.hud-top{position:fixed;top:calc(10px + env(safe-area-inset-top,0px));left:max(16px,env(safe-area-inset-left,0px));right:max(16px,env(safe-area-inset-right,0px));display:flex;justify-content:space-between;align-items:flex-start;gap:8px;pointer-events:none;z-index:5}
+.chip{pointer-events:auto;background:var(--paper);border-radius:14px;padding:6px 12px;box-shadow:0 3px 0 rgba(34,57,42,.28)}
+.clock .isle{font-family:var(--display);font-size:17px;color:var(--leaf);line-height:1.2}
+.clock .time{font-size:12.5px;color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap}
+.hud-right{display:flex;flex-direction:column;align-items:flex-end;gap:6px}
+.money{display:flex;align-items:center;gap:6px;font-family:var(--display);font-size:17px;font-variant-numeric:tabular-nums}
+.btns{display:flex;gap:6px;pointer-events:auto;flex-wrap:wrap;justify-content:flex-end}
+.pill{border:0;background:var(--paper);border-radius:999px;padding:6px 12px;font-size:14px;box-shadow:0 3px 0 rgba(34,57,42,.28)}
+.pill:active{transform:translateY(2px);box-shadow:0 1px 0 rgba(34,57,42,.28)}
+.pill kbd{font-family:var(--body);font-size:11px;color:var(--muted);margin-left:4px}
+
+.hotbar{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(14px + env(safe-area-inset-bottom,0px));border:0;background:var(--paper);border-radius:14px;padding:5px 12px 5px 6px;display:flex;align-items:center;gap:8px;font-size:14px;box-shadow:0 3px 0 rgba(34,57,42,.28);z-index:5;max-width:calc(100% - 220px)}
+.hotbar canvas{width:30px;height:30px;background:var(--paper-2);border-radius:9px}
+.hotbar span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+#toasts{position:fixed;left:50%;transform:translateX(-50%);top:calc(84px + env(safe-area-inset-top,0px));display:flex;flex-direction:column;align-items:center;gap:6px;pointer-events:none;z-index:8;width:min(440px,calc(100% - 32px))}
+.toast{background:rgba(34,57,42,.9);color:#f3f8ea;padding:7px 14px;border-radius:12px;font-size:14px;text-align:center;animation:pop .25s ease-out;transition:opacity .4s}
+.toast b{color:var(--sun);font-weight:400;font-family:var(--display)}
+@keyframes pop{from{transform:translateY(-6px) scale(.96);opacity:0}to{transform:none;opacity:1}}
+
+#touch{position:fixed;inset:auto 0 0 0;height:0;z-index:6}
+#stick{position:fixed;left:max(22px,env(safe-area-inset-left,0px));bottom:calc(22px + env(safe-area-inset-bottom,0px));width:116px;height:116px;border-radius:50%;background:rgba(243,248,234,.35);border:2px solid rgba(243,248,234,.7);touch-action:none}
+#knob{position:absolute;left:50%;top:50%;width:48px;height:48px;margin:-24px 0 0 -24px;border-radius:50%;background:var(--paper);box-shadow:0 3px 0 rgba(34,57,42,.3)}
+#btnA{position:fixed;right:max(24px,env(safe-area-inset-right,0px));bottom:calc(34px + env(safe-area-inset-bottom,0px));width:76px;height:76px;border-radius:50%;border:0;background:var(--sun);font-size:28px;box-shadow:0 4px 0 #b47f1f;touch-action:none}
+#btnA:active{transform:translateY(3px);box-shadow:0 1px 0 #b47f1f}
+
+.dialog{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(16px + env(safe-area-inset-bottom,0px));width:min(560px,calc(100% - 32px));background:var(--paper);border-radius:22px;padding:22px 20px 14px;box-shadow:0 5px 0 rgba(34,57,42,.3);z-index:9}
+.who{position:absolute;top:-14px;left:18px;font-family:var(--display);font-size:16px;padding:3px 14px;border-radius:999px;color:#fff;background:var(--leaf)}
+.hearts{position:absolute;top:8px;right:16px;font-size:12px;color:var(--danger);letter-spacing:1px}
+#dlg-text{margin:0;font-size:16.5px;line-height:1.6;min-height:3.2em}
+.dlg-actions{display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap;margin-top:8px}
+.btn{border:0;border-radius:999px;padding:7px 16px;font-size:15px;background:var(--paper-2)}
+.btn.primary{background:var(--sun)}
+.btn:disabled{opacity:.45;cursor:default}
+
+.sheet{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(16px + env(safe-area-inset-bottom,0px));width:min(580px,calc(100% - 32px));max-height:calc(100% - 120px - env(safe-area-inset-top,0px));display:flex;flex-direction:column;background:var(--paper);border-radius:22px;box-shadow:0 5px 0 rgba(34,57,42,.3);z-index:9;touch-action:pan-y}
+.sheet header{display:flex;align-items:center;justify-content:space-between;padding:14px 18px 8px;gap:8px}
+.sheet h2{margin:0;font-family:var(--display);font-weight:400;font-size:21px;color:var(--leaf)}
+.sheet .body{overflow:auto;padding:4px 18px 18px;min-height:0}
+.sub{font-size:13px;color:var(--muted);margin:0 0 10px}
+.tabs{display:flex;gap:6px;margin-bottom:12px}
+.tab{border:0;border-radius:999px;padding:6px 14px;background:var(--paper-2);font-size:14px}
+.tab[aria-selected="true"]{background:var(--leaf);color:#fff}
+.grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px}
+.slot{position:relative;aspect-ratio:1;max-width:100%;border:0;border-radius:14px;background:var(--paper-2);display:grid;place-items:center;padding:0}
+.slot canvas{width:72%;height:72%}
+.slot .n{position:absolute;right:6px;bottom:3px;font-size:12px;font-variant-numeric:tabular-nums;color:var(--ink)}
+.slot.sel{box-shadow:inset 0 0 0 3px var(--sun);background:#fbefcf}
+.slot.empty{cursor:default;opacity:.55}
+.info{margin-top:12px;font-size:14px;line-height:1.55;min-height:2.6em}
+.info b{font-family:var(--display);font-weight:400;font-size:16px}
+.rows{display:flex;flex-direction:column;gap:8px}
+.row{display:flex;align-items:center;gap:10px;background:var(--paper-2);border-radius:14px;padding:8px 10px}
+.row canvas{width:36px;height:36px;flex:none}
+.row .t{flex:1;min-width:0}
+.row .t div:first-child{font-family:var(--display);font-size:16px}
+.row .t div:last-child{font-size:12.5px;color:var(--muted)}
+.price{font-variant-numeric:tabular-nums;white-space:nowrap;font-size:14px}
+.sellbar{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-top:12px;flex-wrap:wrap}
+.dexgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:8px}
+.dex{background:var(--paper-2);border-radius:14px;padding:8px;text-align:center;font-size:13px}
+.dex canvas{width:44px;height:44px;display:block;margin:0 auto 2px}
+.dex .q{width:44px;height:44px;margin:0 auto 2px;display:grid;place-items:center;font-family:var(--display);font-size:22px;color:#a9b9a4}
+.dex small{display:block;color:var(--muted);font-size:11.5px}
+h3{font-family:var(--display);font-weight:400;font-size:16px;margin:14px 0 8px;color:var(--ink)}
+
+.modal{position:fixed;inset:0;display:grid;place-items:center;background:rgba(22,48,40,.45);z-index:20;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.card{background:var(--paper);border-radius:24px;padding:24px 22px;width:min(420px,100%);box-shadow:0 6px 0 rgba(34,57,42,.3)}
+.card h1{font-family:var(--display);font-weight:400;font-size:28px;color:var(--leaf);margin:0 0 6px;text-wrap:balance}
+.card p{margin:0 0 14px;line-height:1.6;font-size:15px}
+.card label{display:block;font-size:13px;color:var(--muted);margin-bottom:4px}
+.card input{width:100%;box-sizing:border-box;font:inherit;font-size:17px;padding:10px 12px;border-radius:12px;border:2px solid var(--paper-2);background:#fff;color:var(--ink);margin-bottom:14px}
+.keys{display:grid;grid-template-columns:auto 1fr;gap:6px 12px;font-size:14px;margin:0 0 16px}
+.keys dt{font-family:var(--display);color:var(--leaf)}
+.keys dd{margin:0}
+@media (prefers-reduced-motion:reduce){.toast{animation:none}}
+</style>
+</head>
+<body>
+
+<div id="game"><canvas id="cv" tabindex="0" aria-label="도토리섬 게임 화면"></canvas></div>
+
+<div class="hud-top">
+  <div class="chip clock"><div class="isle" id="isle">도토리섬</div><div class="time" id="time"></div></div>
+  <div class="hud-right">
+    <div class="chip money" title="도토리 (섬의 돈)">
+      <svg viewBox="0 0 20 20" width="18" height="18" aria-hidden="true"><path d="M3 8.5C3 5 6 3 10 3s7 2 7 5.5z" fill="#7a4e2c"/><rect x="9" y=".5" width="2" height="3.5" rx="1" fill="#7a4e2c"/><path d="M4.2 8.5h11.6c0 5.2-2.9 10-5.8 10S4.2 13.7 4.2 8.5z" fill="#c98a4b"/></svg>
+      <span id="money">0</span>
+    </div>
+    <div class="btns">
+      <button class="pill" id="b-bag">가방<kbd>I</kbd></button>
+      <button class="pill" id="b-dex">도감<kbd>C</kbd></button>
+      <button class="pill" id="b-snd">소리 켬</button>
+      <button class="pill" id="b-help" aria-label="조작법">?</button>
+    </div>
+  </div>
+</div>
+
+<button class="hotbar" id="hotbar"><canvas width="60" height="60" id="hot-ic"></canvas><span id="hot-txt">손에 든 것 없음</span></button>
+<div id="toasts" aria-live="polite"></div>
+
+<div id="touch" hidden>
+  <div id="stick"><div id="knob"></div></div>
+  <button id="btnA" aria-label="행동">A</button>
+</div>
+
+<div class="dialog" id="dialog" hidden>
+  <div class="who" id="dlg-name"></div>
+  <div class="hearts" id="dlg-hearts"></div>
+  <p id="dlg-text"></p>
+  <div class="dlg-actions" id="dlg-actions"></div>
+</div>
+
+<section class="sheet" id="sheet" hidden>
+  <header><h2 id="sheet-title"></h2><button class="btn" id="sheet-close">닫기</button></header>
+  <div class="body" id="sheet-body"></div>
+</section>
+
+<div class="modal" id="intro" hidden>
+  <div class="card">
+    <h1>도토리섬에 온 걸 환영해요</h1>
+    <p>작은 섬에서 과일을 따고, 조개를 줍고, 낚시하고, 이웃과 친해져 보세요. 섬의 시간은 실제 시간과 같이 흘러가요.</p>
+    <label for="name-input">내 이름</label>
+    <input id="name-input" maxlength="8" placeholder="예: 여상" autocomplete="off">
+    <dl class="keys">
+      <dt>이동</dt><dd>방향키 · WASD (Shift 달리기)</dd>
+      <dt>행동</dt><dd>Space · E — 줍기, 나무 흔들기, 낚시, 대화</dd>
+      <dt>가방 · 도감</dt><dd>I · C</dd>
+    </dl>
+    <button class="btn primary" id="start-btn" style="width:100%;font-size:17px;padding:10px">섬 생활 시작</button>
+  </div>
+</div>
+
+<script>
+(()=>{
+'use strict';
+const TS=32,W=56,H=44,TAU=Math.PI*2;
+const SEA=0,SAND=1,GRASS=2,POND=3,PATH=4;
+const $=s=>document.querySelector(s);
+const cv=$('#cv'),ctx=cv.getContext('2d');
+const lc=document.createElement('canvas'),lx=lc.getContext('2d');
+let dpr=1,zoom=2,vw=0,vh=0,camX=0,camY=0,T=0;
+
+/* ---------- data ---------- */
+const FLOWER_COL={red:'#e5484d',yellow:'#f5c542',white:'#fbfbf7',pink:'#f49ac1'};
+const ITEMS={
+  apple:{name:'사과',price:100,stack:10,cat:'fruit'},
+  peach:{name:'복숭아',price:100,stack:10,cat:'fruit'},
+  shell:{name:'소라껍데기',price:60,stack:10,cat:'shell'},
+  clam:{name:'가리비',price:200,stack:10,cat:'shell'},
+  weed:{name:'잡초',price:10,stack:30,cat:'misc'},
+  stone:{name:'돌멩이',price:75,stack:30,cat:'misc'},
+  seed_red:{name:'빨간 꽃씨',price:20,buy:80,stack:10,cat:'seed',color:'red'},
+  seed_yellow:{name:'노란 꽃씨',price:20,buy:80,stack:10,cat:'seed',color:'yellow'},
+  seed_white:{name:'흰 꽃씨',price:20,buy:80,stack:10,cat:'seed',color:'white'},
+  seed_pink:{name:'분홍 꽃씨',price:20,buy:120,stack:10,cat:'seed',color:'pink'},
+  sapling:{name:'사과 묘목',price:100,buy:300,stack:5,cat:'sapling'},
+  jack:{name:'전갱이',price:150,cat:'fish',col:'#8fb3c4',size:.8,where:'바다'},
+  mackerel:{name:'고등어',price:150,cat:'fish',col:'#4f7fa0',size:.9,where:'바다'},
+  seabass:{name:'농어',price:400,cat:'fish',col:'#9aa7a8',size:1.2,where:'바다'},
+  flounder:{name:'가자미',price:300,cat:'fish',col:'#a68b67',size:1,flat:true,where:'바다'},
+  seabream:{name:'참돔',price:3000,cat:'fish',col:'#e46a6a',size:1.15,where:'바다 · 아주 드묾'},
+  crucian:{name:'붕어',price:160,cat:'fish',col:'#a3955a',size:.8,where:'연못'},
+  minnow:{name:'피라미',price:200,cat:'fish',col:'#b9c6c9',size:.6,where:'연못'},
+  catfish:{name:'메기',price:800,cat:'fish',col:'#5c5a4f',size:1.1,where:'연못 · 17시~9시'},
+  mandarin:{name:'쏘가리',price:1000,cat:'fish',col:'#c9a24a',size:1,where:'연못 · 드묾'},
+  can:{name:'빈 깡통',price:10,stack:10,cat:'junk'},
+  whitebf:{name:'배추흰나비',price:160,cat:'bug',where:'낮 · 꽃 근처'},
+  swallowtail:{name:'호랑나비',price:240,cat:'bug',where:'낮'},
+  dragonfly:{name:'고추잠자리',price:180,cat:'bug',where:'낮~저녁 · 가을'},
+  ladybug:{name:'무당벌레',price:200,cat:'bug',where:'낮 · 꽃 위'},
+  cricket:{name:'귀뚜라미',price:430,cat:'bug',where:'저녁~밤 · 가을'},
+};
+const FISH_IDS=['jack','mackerel','seabass','flounder','seabream','crucian','minnow','catfish','mandarin'];
+const BUG_IDS=['whitebf','swallowtail','dragonfly','ladybug','cricket'];
+const SHOP_STOCK=['seed_red','seed_yellow','seed_white','seed_pink','sapling'];
+const VILL=[
+  {id:'mongsil',name:'몽실',sp:'sheep',tic:'매애',shirt:'#e98aa6',tag:'#c9607f',home:[24,20],
+    own:['내 털은 오늘도 폭신폭신해','꽃밭 옆에서 낮잠 자는 게 제일 좋아','빨간 꽃이랑 흰 꽃을 같이 심으면 예쁘대']},
+  {id:'kkwaek',name:'꽥이',sp:'duck',tic:'꽥',shirt:'#5aa3d9',tag:'#3c7fb5',home:[37,23],
+    own:['바다 수영은 아침이 최고야','물고기들이랑은… 사이가 좀 복잡해','연못에 메기가 산다는 소문 들었어? 저녁에만 나온대']},
+  {id:'dodam',name:'도담',sp:'bear',tic:'음냐',shirt:'#e6a43a',tag:'#a36a1c',home:[22,29],
+    own:['배고파… 사과 하나만 있었으면','사과 묘목을 심으면 이틀 뒤에 나무가 된대','돌을 두드리면 돌멩이가 나와. 하루에 세 번까지']},
+];
+const COMMON_LINES=[
+  '요즘 고추잠자리가 정말 많아. 가을인가 봐',
+  '바닷가에서 가리비를 주우면 오동 씨가 비싸게 사 준대',
+  '나무를 흔들면 가끔 도토리 주머니가 떨어진대',
+  '밤이 되면 풀숲에서 귀뚜라미 소리가 들려',
+  '참돔을 낚으면 꼭 보여 줘! 엄청 귀하대',
+  '물방울 상점은 아침 8시부터 밤 10시까지 열어',
+];
+
+/* ---------- utils ---------- */
+function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+const rand=Math.random, pick=a=>a[Math.floor(rand()*a.length)];
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+const fmt=n=>n.toLocaleString('ko-KR');
+function jo(w,a,b){const c=w.charCodeAt(w.length-1)-0xAC00;return w+((c>=0&&c<11172&&c%28)?a:b)}
+function dayKey(d=new Date()){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')}
+function dayDiff(a,b){const p=s=>{const[y,m,d]=s.split('-').map(Number);return new Date(y,m-1,d)};return Math.round((p(b)-p(a))/864e5)}
+function hour(){const d=new Date();return d.getHours()+d.getMinutes()/60}
+function weighted(pool){let s=0;for(const p of pool)s+=p[1];let r=rand()*s;for(const p of pool){r-=p[1];if(r<=0)return p[0]}return pool[0][0]}
+function rr(c,x,y,w,h,r){c.beginPath();c.moveTo(x+r,y);c.arcTo(x+w,y,x+w,y+h,r);c.arcTo(x+w,y+h,x,y+h,r);c.arcTo(x,y+h,x,y,r);c.arcTo(x,y,x+w,y,r);c.closePath()}
+function circ(c,x,y,r,f){c.beginPath();c.arc(x,y,r,0,TAU);c.fillStyle=f;c.fill()}
+function ell(c,x,y,rx,ry,f,rot=0){c.beginPath();c.ellipse(x,y,Math.max(.1,rx),Math.max(.1,ry),rot,0,TAU);c.fillStyle=f;c.fill()}
+
+/* ---------- save ---------- */
+const KEY='dotori-island-v1';
+let S;
+function freshSave(){return{v:1,seed:Math.floor(Math.random()*1e9),name:'',money:1000,inv:Array(20).fill(null),sel:-1,dex:{},objs:null,day:dayKey(),friend:{},px:0,py:0,sound:true,caught:0}}
+function loadLocal(){try{const s=JSON.parse(localStorage.getItem(KEY));if(s&&s.v===1)return s}catch(e){}return null}
+let dirty=false;
+function serialize(){S.objs=[...objs].map(([k,o])=>[k,o]);S.px=P.x;S.py=P.y;return S}
+function saveNow(){try{localStorage.setItem(KEY,JSON.stringify(serialize()))}catch(e){}dirty=false}
+const markDirty=()=>{dirty=true};
+
+/* ---------- world ---------- */
+let tiles,buildings,objs,ground,ponds;
+function genWorld(seed){
+  const r=mulberry32(seed);
+  const G=8,gw=Math.ceil(W/G)+2,gh=Math.ceil(H/G)+2,grid=[];
+  for(let i=0;i<gw*gh;i++)grid.push(r());
+  const sm=t=>t*t*(3-2*t);
+  const noise=(x,y)=>{const fx=x/G,fy=y/G,ix=Math.floor(fx),iy=Math.floor(fy),tx=sm(fx-ix),ty=sm(fy-iy),g=(a,b)=>grid[b*gw+a];return(g(ix,iy)*(1-tx)+g(ix+1,iy)*tx)*(1-ty)+(g(ix,iy+1)*(1-tx)+g(ix+1,iy+1)*tx)*ty};
+  const t=new Uint8Array(W*H),cx=W/2,cy=H/2;
+  for(let y=0;y<H;y++)for(let x=0;x<W;x++){
+    const nx=(x+.5-cx)/(W*.43),ny=(y+.5-cy)/(H*.43);
+    const d=Math.hypot(nx,ny)+(noise(x,y)-.5)*.3;
+    let v=d<.78?GRASS:d<.95?SAND:SEA;
+    if(x<2||y<2||x>=W-2||y>=H-2)v=SEA;
+    t[y*W+x]=v;
+  }
+  for(let y=cy-12;y<cy+11;y++)for(let x=cx-14;x<cx+12;x++)t[y*W+x]=GRASS;
+  const pd=[{x:40,y:14,rx:3.3,ry:2.4},{x:13,y:29,rx:2.7,ry:2.1}];
+  for(const p of pd)for(let y=0;y<H;y++)for(let x=0;x<W;x++){const a=(x+.5-p.x)/p.rx,b=(y+.5-p.y)/p.ry;if(a*a+b*b<1&&t[y*W+x]===GRASS)t[y*W+x]=POND}
+  const shop={k:'shop',x:18,y:13,w:5,h:3};shop.door={x:20,y:15};
+  const house={k:'house',x:31,y:25,w:3,h:3};house.door={x:32,y:27};
+  const reserved=new Uint8Array(W*H);
+  for(const b of[shop,house])for(let y=b.y-1;y<=b.y+b.h+1;y++)for(let x=b.x-1;x<=b.x+b.w;x++)reserved[y*W+x]=1;
+  const setPath=(x,y)=>{if(t[y*W+x]===GRASS)t[y*W+x]=PATH;reserved[y*W+x]=1};
+  for(let y=16;y<=22;y++)setPath(20,y);
+  for(let x=20;x<=32;x++)setPath(x,22);
+  for(let y=22;y<=28;y++)setPath(32,y);
+  for(let y=18;y<=24;y++)for(let x=22;x<=29;x++){if(Math.hypot((x+.5-25.5)/1.3,y+.5-21.5)<2.4)setPath(x,y)}
+  const o=new Map();
+  const free=(x,y)=>t[y*W+x]===GRASS&&!reserved[y*W+x]&&!o.has(y*W+x);
+  const crowd=(x,y)=>{for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++){const q=o.get((y+dy)*W+x+dx);if(q&&(q.t==='tree'||q.t==='rock'))return true;if(t[(y+dy)*W+x+dx]===POND)return true}return false};
+  const rx=()=>2+Math.floor(r()*(W-4)),ry=()=>2+Math.floor(r()*(H-4));
+  for(let k=0,n=0;k<900&&n<54;k++){const x=rx(),y=ry();if(free(x,y)&&!crowd(x,y)){const fr=r()<.38?(r()<.75?'apple':'peach'):null;o.set(y*W+x,{t:'tree',f:fr,n:fr?3:0,sh:false});n++}}
+  for(let k=0,n=0;k<400&&n<6;k++){const x=rx(),y=ry();if(free(x,y)&&!crowd(x,y)){o.set(y*W+x,{t:'rock',h:0});n++}}
+  const cols=Object.keys(FLOWER_COL);
+  for(let c=0;c<9;c++){const col=cols[Math.floor(r()*cols.length)];let bx=rx(),by=ry();for(let k=0;k<4;k++){const x=bx+Math.floor(r()*3)-1,y=by+Math.floor(r()*3)-1;if(x>1&&y>1&&x<W-2&&y<H-2&&free(x,y))o.set(y*W+x,{t:'flower',c:col})}}
+  for(let k=0,n=0;k<400&&n<16;k++){const x=rx(),y=ry();if(free(x,y)){o.set(y*W+x,{t:'weed'});n++}}
+  return{t,buildings:[shop,house],objs:o,ponds:pd,reserved};
+}
+function spawnShells(n){
+  let placed=0;
+  for(let k=0;k<600&&placed<n;k++){const x=2+Math.floor(rand()*(W-4)),y=2+Math.floor(rand()*(H-4)),i=y*W+x;if(tiles[i]===SAND&&!objs.has(i)){objs.set(i,{t:'shell',k:rand()<.18?'clam':'shell'});placed++}}
+}
+function spawnWeeds(n){
+  let placed=0;
+  for(let k=0;k<600&&placed<n;k++){const x=2+Math.floor(rand()*(W-4)),y=2+Math.floor(rand()*(H-4)),i=y*W+x;if(tiles[i]===GRASS&&!objs.has(i)&&!world.reserved[i]){objs.set(i,{t:'weed'});placed++}}
+}
+let world;
+function buildingAt(x,y){for(const b of buildings)if(x>=b.x&&x<b.x+b.w&&y>=b.y&&y<b.y+b.h)return b;return null}
+function walkable(tx,ty){
+  if(tx<0||ty<0||tx>=W||ty>=H)return false;
+  const v=tiles[ty*W+tx];if(v===SEA||v===POND)return false;
+  if(buildingAt(tx,ty))return false;
+  const o=objs.get(ty*W+tx);if(o&&(o.t==='tree'||o.t==='rock'))return false;
+  return true;
+}
+function isWater(tx,ty){if(tx<0||ty<0||tx>=W||ty>=H)return false;const v=tiles[ty*W+tx];return v===SEA||v===POND}
+
+function dailyReset(){
+  const today=dayKey();const gap=dayDiff(S.day,today);if(gap<=0)return;
+  for(const[i,o]of[...objs]){
+    if(o.t==='tree'){if(o.f)o.n=3;o.sh=false}
+    else if(o.t==='rock')o.h=0;
+    else if(o.t==='flower')o.bud=false;
+    else if(o.t==='sapling'&&dayDiff(o.d,today)>=2)objs.set(i,{t:'tree',f:o.f,n:3,sh:false});
+    else if(o.t==='shell')objs.delete(i);
+  }
+  spawnShells(9);
+  let weeds=0;for(const o of objs.values())if(o.t==='weed')weeds++;
+  spawnWeeds(Math.min(3*gap,Math.max(0,24-weeds)));
+  S.day=today;markDirty();
+  toast('새로운 하루가 밝았어요. 나무에 과일이 다시 열렸어요');
+}
+
+/* ---------- ground prerender ---------- */
+function renderGround(){
+  const g=document.createElement('canvas');g.width=W*TS;g.height=H*TS;const c=g.getContext('2d');
+  c.fillStyle='#2b86a8';c.fillRect(0,0,g.width,g.height);
+  const blob=(test,rad,style)=>{c.beginPath();for(let y=0;y<H;y++)for(let x=0;x<W;x++)if(test(tiles[y*W+x],x,y)){const px=x*TS+16,py=y*TS+16;c.moveTo(px+rad,py);c.arc(px,py,rad,0,TAU)}c.fillStyle=style;c.fill()};
+  blob(v=>v!==SEA,TS*2.1,'#3399b8');
+  blob(v=>v!==SEA,TS*1.2,'#56b6cc');
+  blob(v=>v!==SEA,TS*.86,'#9bd8d6');
+  blob(v=>v!==SEA,TS*.74,'#f0dca6');
+  const pc=document.createElement('canvas');pc.width=pc.height=64;const p=pc.getContext('2d');
+  p.fillStyle='#86c463';p.fillRect(0,0,64,64);p.fillStyle='#7dbb5b';p.fillRect(0,0,32,32);p.fillRect(32,32,32,32);
+  blob(v=>v===GRASS||v===PATH||v===POND,TS*.72,c.createPattern(pc,'repeat'));
+  blob(v=>v===PATH,TS*.6,'#d7b47c');
+  blob(v=>v===POND,TS*.74,'#7fc4a8');
+  blob(v=>v===POND,TS*.62,'#4fb0c8');
+  blob((v,x,y)=>v===POND&&tiles[y*W+x-1]===POND&&tiles[y*W+x+1]===POND&&tiles[(y-1)*W+x]===POND&&tiles[(y+1)*W+x]===POND,TS*.55,'#3f9fbb');
+  const r=mulberry32(S.seed+7);
+  for(let y=0;y<H;y++)for(let x=0;x<W;x++){
+    const v=tiles[y*W+x],X=x*TS,Y=y*TS;
+    if(v===GRASS){
+      c.strokeStyle='#5f9f48';c.lineWidth=1.5;
+      for(let k=0;k<2;k++){const gx=X+4+r()*24,gy=Y+6+r()*22;c.beginPath();c.moveTo(gx-2,gy);c.lineTo(gx-1,gy-4);c.moveTo(gx+1,gy);c.lineTo(gx+2,gy-4);c.stroke()}
+    }else if(v===SAND){
+      for(let k=0;k<3;k++){circ(c,X+4+r()*24,Y+4+r()*24,1,'#d8c18a')}
+    }else if(v===PATH){
+      for(let k=0;k<2;k++)ell(c,X+6+r()*20,Y+6+r()*20,2,1.4,'#c29d66');
+    }
+  }
+  return g;
+}
+
+/* ---------- drawing: objects ---------- */
+function drawTree(c,o,x,y,shake){
+  const cx=x+16,b=y+29,s=shake>0?Math.sin(shake*45)*2.5:0;
+  ell(c,cx,b,15,5,'rgba(20,50,20,.22)');
+  c.fillStyle='#8a5a36';rr(c,cx-4,b-17,8,17,3);c.fill();
+  circ(c,cx+s,b-31,16,'#3d8a49');circ(c,cx-10+s,b-22,11,'#3d8a49');circ(c,cx+10+s,b-22,11,'#3d8a49');
+  circ(c,cx-3+s,b-34,10,'#56a957');circ(c,cx+7+s,b-28,6,'#56a957');
+  if(o.f&&o.n>0){
+    const col=o.f==='apple'?'#e2453c':'#f4a199',pos=[[-8,-24],[6,-33],[7,-20]];
+    for(let k=0;k<o.n;k++){const[a,d]=pos[k];circ(c,cx+a+s,b+d,4.2,col);circ(c,cx+a-1.3+s,b+d-1.4,1.3,'rgba(255,255,255,.65)')}
+  }
+}
+function drawRock(c,cx,cy){ell(c,cx,cy+3,14,5,'rgba(20,50,20,.2)');ell(c,cx,cy-5,13,10,'#949c9e');ell(c,cx-1,cy-7,10,7,'#adb5b6');ell(c,cx-4,cy-10,4,2.4,'#d0d6d6')}
+function drawFlower(c,cx,cy,color,bud){
+  ell(c,cx-4,cy+2,4,2,'#4a9541',-.4);ell(c,cx+4,cy+2,4,2,'#4a9541',.4);
+  c.strokeStyle='#3d8636';c.lineWidth=1.5;c.beginPath();c.moveTo(cx,cy+3);c.lineTo(cx,cy-5);c.stroke();
+  if(bud){circ(c,cx,cy-6,2.6,'#6db35a');return}
+  const col=FLOWER_COL[color];
+  for(let k=0;k<5;k++){const a=k/5*TAU-Math.PI/2;circ(c,cx+Math.cos(a)*3.7,cy-7+Math.sin(a)*3.7,3,col)}
+  circ(c,cx,cy-7,2.1,color==='yellow'?'#c4752a':'#f2c044');
+}
+function drawWeed(c,cx,cy){c.strokeStyle='#3e7f37';c.lineWidth=2;c.lineCap='round';c.beginPath();c.moveTo(cx,cy);c.lineTo(cx-5,cy-8);c.moveTo(cx,cy);c.lineTo(cx,cy-10);c.moveTo(cx,cy);c.lineTo(cx+5,cy-7);c.moveTo(cx-3,cy);c.lineTo(cx-8,cy-4);c.stroke()}
+function drawShell(c,cx,cy){c.beginPath();c.moveTo(cx-7,cy+3);c.quadraticCurveTo(cx-7,cy-6,cx+1,cy-7);c.lineTo(cx+8,cy+1);c.quadraticCurveTo(cx,cy+6,cx-7,cy+3);c.fillStyle='#f7e1cc';c.fill();c.strokeStyle='#c98f6f';c.lineWidth=1;c.stroke();c.beginPath();c.moveTo(cx-3,cy-5);c.lineTo(cx-1,cy+4);c.moveTo(cx+1,cy-6);c.lineTo(cx+3,cy+3);c.stroke()}
+function drawClam(c,cx,cy){c.beginPath();c.moveTo(cx,cy+4);c.arc(cx,cy+4,9,Math.PI*1.08,Math.PI*1.92);c.closePath();c.fillStyle='#f3a39c';c.fill();c.strokeStyle='#cf6f69';c.lineWidth=1;for(let k=0;k<5;k++){const a=Math.PI*(1.15+k*.175);c.beginPath();c.moveTo(cx,cy+4);c.lineTo(cx+Math.cos(a)*8.5,cy+4+Math.sin(a)*8.5);c.stroke()}c.fillStyle='#cf6f69';c.fillRect(cx-2.5,cy+3,5,3)}
+function drawSapling(c,cx,cy){ell(c,cx,cy+2,6,2.2,'rgba(20,50,20,.2)');c.strokeStyle='#8a5a36';c.lineWidth=2;c.beginPath();c.moveTo(cx,cy+1);c.lineTo(cx,cy-13);c.stroke();ell(c,cx-4,cy-13,4.5,2.4,'#56a957',-.5);ell(c,cx+4,cy-15,4.5,2.4,'#56a957',.5)}
+function drawFish(c,cx,cy,col,size,flat){
+  const L=11*size,h=(flat?7:5)*size;
+  c.beginPath();c.moveTo(cx+L-3,cy);c.lineTo(cx+L+6*size,cy-5*size);c.lineTo(cx+L+6*size,cy+5*size);c.closePath();c.fillStyle=col;c.fill();
+  ell(c,cx,cy,L,h,col);ell(c,cx-1,cy+h*.4,L*.8,h*.42,'rgba(255,255,255,.35)');circ(c,cx-L*.6,cy-1,1.6,'#1d2a22');
+}
+function drawBug(c,kind,x,y,t){
+  if(kind==='whitebf'||kind==='swallowtail'){
+    const f=Math.abs(Math.cos(t*14))*.85+.15,col=kind==='whitebf'?'#fbfbf2':'#f2c94c',edge=kind==='whitebf'?'#7c7c70':'#2b2b24';
+    for(const s of[-1,1]){ell(c,x+s*5*f,y-2,5*f,4,col);ell(c,x+s*4*f,y+3,3.5*f,3,col);circ(c,x+s*7*f,y-4,1.3,edge)}
+    if(kind==='swallowtail'){c.strokeStyle='#2b2b24';c.lineWidth=1;c.beginPath();c.moveTo(x-6*f,y-4);c.lineTo(x+6*f,y-4);c.stroke()}
+    ell(c,x,y,1.3,5,'#2a2a26');
+  }else if(kind==='dragonfly'){
+    const f=Math.abs(Math.cos(t*30))*.6+.4;
+    ell(c,x-6,y-3,7*f,2.2,'rgba(225,240,255,.8)',-.2);ell(c,x+6,y-3,7*f,2.2,'rgba(225,240,255,.8)',.2);
+    ell(c,x-5,y+1,6*f,2,'rgba(225,240,255,.8)',.2);ell(c,x+5,y+1,6*f,2,'rgba(225,240,255,.8)',-.2);
+    c.fillStyle='#d8432f';rr(c,x-1.3,y-4,2.6,15,1.3);c.fill();circ(c,x,y-5,2.4,'#b83525');
+  }else if(kind==='ladybug'){
+    circ(c,x,y,4.2,'#d9372d');circ(c,x,y-4,2.2,'#222');c.strokeStyle='#222';c.lineWidth=.8;c.beginPath();c.moveTo(x,y-3);c.lineTo(x,y+4);c.stroke();circ(c,x-2,y,1,'#222');circ(c,x+2,y+1,1,'#222');
+  }else if(kind==='cricket'){
+    c.strokeStyle='#3a2e20';c.lineWidth=1;c.beginPath();c.moveTo(x-3,y);c.lineTo(x-7,y-4);c.lineTo(x-9,y+1);c.moveTo(x+3,y);c.lineTo(x+7,y-4);c.lineTo(x+9,y+1);c.moveTo(x-2,y-4);c.lineTo(x-6,y-10);c.moveTo(x+2,y-4);c.lineTo(x+6,y-10);c.stroke();
+    ell(c,x,y,3.2,5.5,'#4a3b2a');circ(c,x,y-5,2.4,'#3a2e20');
+  }
+}
+function drawItem(c,id,s){
+  c.clearRect(0,0,s,s);c.save();c.scale(s/32,s/32);
+  const it=ITEMS[id];
+  if(it.cat==='fruit'){const col=id==='apple'?'#e2453c':'#f4a199';circ(c,16,18,9,col);circ(c,13,15,2.5,'rgba(255,255,255,.6)');c.strokeStyle='#7a4e2c';c.lineWidth=2;c.beginPath();c.moveTo(16,10);c.lineTo(17,6);c.stroke();ell(c,20,7,4,2,'#4a9541',-.3)}
+  else if(id==='shell')drawShell(c,16,18);
+  else if(id==='clam')drawClam(c,16,20);
+  else if(id==='weed')drawWeed(c,17,24);
+  else if(id==='stone'){ell(c,16,19,10,8,'#949c9e');ell(c,14,17,7,5,'#adb5b6')}
+  else if(it.cat==='seed'){c.fillStyle='#c9a575';rr(c,8,7,16,20,3);c.fill();c.fillStyle='#b38e5d';c.fillRect(8,7,16,4);for(let k=0;k<5;k++){const a=k/5*TAU;circ(c,16+Math.cos(a)*3.2,19+Math.sin(a)*3.2,2.6,FLOWER_COL[it.color])}circ(c,16,19,1.8,'#f2c044')}
+  else if(id==='sapling'){c.fillStyle='#c9a575';rr(c,9,20,14,8,3);c.fill();drawSapling(c,16,21);circ(c,20,9,2.4,'#e2453c')}
+  else if(it.cat==='fish')drawFish(c,14,16,it.col,Math.min(it.size,1),it.flat);
+  else if(id==='can'){c.fillStyle='#9aa4a8';rr(c,10,8,12,18,3);c.fill();c.fillStyle='#c4ccd0';c.fillRect(10,12,12,4)}
+  else if(it.cat==='bug'){c.scale(1.5,1.5);drawBug(c,id,10.7,11.5,.05)}
+  c.restore();
+}
+function iconCanvas(id,px=64){const e=document.createElement('canvas');e.width=e.height=px;drawItem(e.getContext('2d'),id,px);return e}
+
+/* ---------- drawing: characters & buildings ---------- */
+function drawChar(c,x,y,o){
+  const bob=o.moving?Math.abs(Math.sin(o.phase))*2:0,step=o.moving?Math.sin(o.phase)*2.5:0;
+  ell(c,x,y,10,3.6,'rgba(20,50,20,.25)');
+  const footCol=o.sp==='duck'?'#f0952e':o.sp==='bear'?'#6e4a2f':o.sp==='sheep'?'#4b3f3a':'#5a4636';
+  ell(c,x-4,y-1-(step>0?step:0),3,2,footCol);ell(c,x+4,y-1-(step<0?-step:0),3,2,footCol);
+  c.fillStyle=o.shirt;rr(c,x-7,y-15-bob,14,12,5);c.fill();
+  c.fillStyle='rgba(255,255,255,.25)';c.fillRect(x-7,y-11-bob,14,2);
+  const hx=x,hy=y-25-bob,d=o.dir;
+  const eye=(col='#2a2420')=>{if(d==='up')return;if(d==='down'){circ(c,hx-3.6,hy+1,1.5,col);circ(c,hx+3.6,hy+1,1.5,col)}else{const s=d==='left'?-1:1;circ(c,hx+s*4.5,hy+1,1.5,col)}};
+  if(o.sp==='player'){
+    circ(c,hx,hy,10,'#f6d2b0');
+    c.fillStyle=o.hair||'#5a3b28';c.beginPath();
+    if(d==='up'){c.arc(hx,hy,10.5,0,TAU)}
+    else if(d==='down'){c.arc(hx,hy-1,10.5,Math.PI*1.02,Math.PI*1.98);c.lineTo(hx+10,hy-1);c.lineTo(hx-10,hy-1)}
+    else{const s=d==='left'?1:-1;c.arc(hx,hy-1,10.5,Math.PI*1.05,Math.PI*1.95);c.lineTo(hx+s*10.5,hy+5);c.lineTo(hx+s*4,hy+2)}
+    c.fill();eye();if(d==='down'){circ(c,hx-6,hy+4,1.8,'rgba(240,120,120,.45)');circ(c,hx+6,hy+4,1.8,'rgba(240,120,120,.45)')}
+  }else if(o.sp==='sheep'){
+    for(let k=0;k<8;k++){const a=Math.PI*(.9+k*.17);circ(c,hx+Math.cos(a)*9,hy-2+Math.sin(a)*7,4.6,'#fffaf2')}
+    circ(c,hx,hy+1,8.5,'#f1d6b8');circ(c,hx,hy-7,6,'#fffaf2');
+    if(d!=='up'){ell(c,hx-10,hy,4,2,'#e3c19c',.3);ell(c,hx+10,hy,4,2,'#e3c19c',-.3)}
+    eye();
+  }else if(o.sp==='duck'){
+    circ(c,hx,hy,9.5,'#fbfbf4');ell(c,hx,hy-10,2,3.5,'#fbfbf4');
+    if(d==='down')ell(c,hx,hy+4,4.5,2.2,'#f0952e');else if(d!=='up'){const s=d==='left'?-1:1;ell(c,hx+s*9,hy+2,4,2,'#f0952e')}
+    eye();
+  }else if(o.sp==='bear'){
+    circ(c,hx-7,hy-7,4,'#9c6b45');circ(c,hx+7,hy-7,4,'#9c6b45');circ(c,hx-7,hy-7,2,'#d7a679');circ(c,hx+7,hy-7,2,'#d7a679');
+    circ(c,hx,hy,10,'#a87449');
+    if(d==='down'){ell(c,hx,hy+4,4.5,3.2,'#e1b98e');circ(c,hx,hy+2.6,1.5,'#3b2a1e')}else if(d!=='up'){const s=d==='left'?-1:1;ell(c,hx+s*7,hy+3,3.4,2.8,'#e1b98e')}
+    eye();
+  }
+}
+function drawShop(c,b,lit){
+  const X=b.x*TS,Y=b.y*TS,DX=b.door.x*TS;
+  ell(c,X+80,Y+95,82,7,'rgba(20,50,20,.22)');
+  c.fillStyle='#f4ecdd';rr(c,X+6,Y+30,148,64,6);c.fill();c.strokeStyle='#c7b391';c.lineWidth=2;c.stroke();
+  c.fillStyle='#2f8fa8';c.beginPath();c.moveTo(X,Y+36);c.lineTo(X+12,Y+4);c.lineTo(X+148,Y+4);c.lineTo(X+160,Y+36);c.closePath();c.fill();
+  c.fillStyle='#3aa5bf';for(let k=0;k<6;k++){c.fillRect(X+18+k*22,Y+8,10,24)}
+  for(let k=0;k<10;k++){c.beginPath();c.arc(X+14+k*14.7,Y+40,7.3,0,Math.PI);c.fillStyle=k%2?'#fffaf0':'#f0b43c';c.fill()}
+  for(const wx of[X+18,X+112]){c.fillStyle=lit?'#ffd77a':'#a6d4e2';rr(c,wx,Y+54,30,22,3);c.fill();c.strokeStyle='#8f6140';c.lineWidth=2;c.stroke();c.beginPath();c.moveTo(wx+15,Y+54);c.lineTo(wx+15,Y+76);c.stroke()}
+  c.fillStyle='#8f6140';rr(c,DX+6,Y+56,20,38,6);c.fill();circ(c,DX+21,Y+76,1.6,'#f0b43c');
+  c.fillStyle='#fffaf0';rr(c,X+48,Y+9,64,17,5);c.fill();c.strokeStyle='#2a6f80';c.lineWidth=1.5;c.stroke();
+  c.fillStyle='#22392a';c.font='10px Jua, sans-serif';c.textAlign='center';c.textBaseline='middle';c.fillText('물방울 상점',X+80,Y+18);
+  circ(c,X+44,Y+18,3.2,'#6ec6dc');
+}
+function drawHouse(c,b,lit){
+  const X=b.x*TS,Y=b.y*TS;
+  ell(c,X+48,Y+95,50,6,'rgba(20,50,20,.22)');
+  c.fillStyle='#fbf8f1';rr(c,X+8,Y+42,80,52,5);c.fill();c.strokeStyle='#cdbf9f';c.lineWidth=2;c.stroke();
+  c.fillStyle='#8f6140';c.fillRect(X+66,Y+10,10,22);
+  c.fillStyle='#d4574a';c.beginPath();c.moveTo(X,Y+48);c.lineTo(X+48,Y+6);c.lineTo(X+96,Y+48);c.closePath();c.fill();
+  c.fillStyle='#e8695b';c.beginPath();c.moveTo(X+48,Y+6);c.lineTo(X+96,Y+48);c.lineTo(X+84,Y+48);c.lineTo(X+48,Y+16);c.closePath();c.fill();
+  c.fillStyle='#5f8f5a';rr(c,X+38,Y+60,20,34,6);c.fill();circ(c,X+53,Y+78,1.6,'#f0b43c');
+  c.fillStyle=lit?'#ffd77a':'#a6d4e2';rr(c,X+66,Y+56,16,14,3);c.fill();c.strokeStyle='#8f6140';c.lineWidth=2;c.stroke();
+  c.fillStyle=lit?'#ffd77a':'#a6d4e2';rr(c,X+14,Y+56,16,14,3);c.fill();c.stroke();
+  c.fillStyle='#8f6140';c.fillRect(X+86,Y+80,3,14);c.fillStyle='#d4574a';rr(c,X+82,Y+72,12,9,3);c.fill();
+}
+
+/* ---------- entities ---------- */
+const P={x:0,y:0,dir:'down',fx:0,fy:1,moving:false,run:false,phase:0,swing:0,hair:'#5a3b28',shirt:'#4f9bd6',sp:'player'};
+let villagers=[],bugs=[],parts=[],fishing=null,shakes=new Map();
+let panel=null,dlg=null;
+const keys=new Set();let jx=0,jy=0;
+
+function nearestWalkable(tx,ty){for(let r=0;r<8;r++)for(let dy=-r;dy<=r;dy++)for(let dx=-r;dx<=r;dx++)if(walkable(tx+dx,ty+dy))return[tx+dx,ty+dy];return[tx,ty]}
+function initVillagers(){
+  villagers=VILL.map(v=>{const[hx,hy]=nearestWalkable(v.home[0],v.home[1]);return{...v,x:hx*TS+16,y:hy*TS+22,hx,hy,dir:'down',moving:false,phase:0,tx:null,ty:null,wait:1+rand()*3,stuck:0,talking:false}});
+}
+function canStand(x,y){const hw=7,hh=4;for(const[ox,oy]of[[-hw,-hh],[hw,-hh],[-hw,hh],[hw,hh]])if(!walkable(Math.floor((x+ox)/TS),Math.floor((y+oy)/TS)))return false;return true}
+
+/* ---------- audio ---------- */
+let AC=null;
+function tone(f,d,type='sine',v=.1,when=0){const t0=AC.currentTime+when,o=AC.createOscillator(),g=AC.createGain();o.type=type;o.frequency.setValueAtTime(f,t0);g.gain.setValueAtTime(v,t0);g.gain.exponentialRampToValueAtTime(.0008,t0+d);o.connect(g);g.connect(AC.destination);o.start(t0);o.stop(t0+d+.03)}
+function snd(k){
+  if(!S||!S.sound)return;
+  try{AC=AC||new(window.AudioContext||window.webkitAudioContext)();if(AC.state==='suspended')AC.resume();
+    if(k==='pick'){tone(880,.09,'triangle');tone(1320,.12,'triangle',.08,.06)}
+    else if(k==='coin'){tone(988,.08,'square',.05);tone(1319,.18,'square',.05,.07)}
+    else if(k==='catch'){[523,659,784,1047].forEach((f,i)=>tone(f,.16,'triangle',.09,i*.08))}
+    else if(k==='splash'){tone(240,.18,'sine',.12);tone(160,.22,'sine',.08,.04)}
+    else if(k==='bite'){tone(660,.06,'square',.06);tone(660,.06,'square',.06,.1)}
+    else if(k==='blip'){tone(520+rand()*160,.04,'square',.025)}
+    else if(k==='rustle'){for(let i=0;i<4;i++)tone(300+rand()*500,.05,'triangle',.04,i*.04)}
+    else if(k==='fail'){tone(330,.12,'sine',.08);tone(247,.2,'sine',.08,.1)}
+  }catch(e){}
+}
+
+/* ---------- ui helpers ---------- */
+function toast(html){
+  const box=$('#toasts');const d=document.createElement('div');d.className='toast';d.innerHTML=html;box.appendChild(d);
+  while(box.children.length>3)box.firstChild.remove();
+  setTimeout(()=>{d.style.opacity='0';setTimeout(()=>d.remove(),450)},2600);
+}
+const DAYS=['일','월','화','수','목','금','토'];
+function updateHUD(){
+  const d=new Date(),h=d.getHours(),m=String(d.getMinutes()).padStart(2,'0');
+  $('#time').textContent=`${d.getMonth()+1}월 ${d.getDate()}일 ${DAYS[d.getDay()]}요일 · ${h<12?'오전':'오후'} ${(h%12)||12}:${m}`;
+  $('#money').textContent=fmt(S.money);
+  $('#isle').textContent=S.name?`${S.name}의 도토리섬`:'도토리섬';
+  $('#b-snd').textContent=S.sound?'소리 켬':'소리 끔';
+  const s=S.sel>=0&&S.inv[S.sel];
+  const hc=$('#hot-ic').getContext('2d');
+  if(s){drawItem(hc,s.id,60);$('#hot-txt').textContent=`${ITEMS[s.id].name}${s.n>1?' ×'+s.n:''}`}
+  else{hc.clearRect(0,0,60,60);$('#hot-txt').textContent='손에 든 것 없음'}
+}
+function addItem(id,n=1){const st=ITEMS[id].stack||1;let left=n;
+  for(const s of S.inv)if(left&&s&&s.id===id&&s.n<st){const k=Math.min(st-s.n,left);s.n+=k;left-=k}
+  for(let i=0;i<S.inv.length&&left;i++)if(!S.inv[i]){const k=Math.min(st,left);S.inv[i]={id,n:k};left-=k}
+  markDirty();return n-left}
+function removeAt(i,n=1){const s=S.inv[i];if(!s)return;s.n-=n;if(s.n<=0){S.inv[i]=null;if(S.sel===i)S.sel=-1}markDirty()}
+function bagFull(){toast('가방이 꽉 찼어요. 상점에서 팔아 보세요');snd('fail')}
+function register(id){
+  const it=ITEMS[id];
+  if((it.cat==='fish'||it.cat==='bug')&&!S.dex[id]){S.dex[id]=true;setTimeout(()=>toast(`도감에 <b>${it.name}</b> 등록!`),400)}
+}
+
+/* ---------- actions ---------- */
+function frontPoint(){return{x:P.x+P.fx*18,y:P.y-4+P.fy*18}}
+function action(){
+  if(panel==='intro')return;
+  if(panel==='dialog'){advanceDialog();return}
+  if(panel)return;
+  if(fishing){reel();return}
+  const f=frontPoint(),ftx=Math.floor(f.x/TS),fty=Math.floor(f.y/TS);
+  for(const v of villagers)if(Math.hypot(v.x-f.x,v.y-f.y)<30){talk(v);return}
+  for(const b of bugs)if(!b.gone&&Math.hypot(b.x-f.x,b.y-f.y)<28){catchBug(b);return}
+  for(const b of buildings)if(b.door.x===ftx&&b.door.y===fty){b.k==='shop'?openShop():houseDoor();return}
+  const own=Math.floor(P.x/TS)+Math.floor((P.y-4)/TS)*W;
+  for(const i of[fty*W+ftx,own]){const o=objs.get(i);if(o){if(interact(o,i))return}}
+  if(isWater(ftx,fty)){startFishing(ftx,fty);return}
+  const s=S.sel>=0&&S.inv[S.sel];
+  if(s&&(ITEMS[s.id].cat==='seed'||s.id==='sapling')){
+    const i=fty*W+ftx;
+    if(tiles[i]===GRASS&&!objs.has(i)&&!buildingAt(ftx,fty)){
+      if(s.id==='sapling'){
+        if(Math.hypot(ftx*TS+16-P.x,fty*TS+22-P.y)<14){toast('바로 앞 칸에 심어요. 한 걸음 물러서 보세요');return}
+        objs.set(i,{t:'sapling',f:'apple',d:dayKey()});toast('사과 묘목을 심었어요. 이틀 뒤면 나무가 돼요');
+      }else{objs.set(i,{t:'flower',c:ITEMS[s.id].color,bud:true});toast(`${jo(ITEMS[s.id].name,'을','를')} 심었어요. 내일 꽃이 펴요`)}
+      removeAt(S.sel);snd('pick');updateHUD();return;
+    }
+    toast('풀밭의 빈 칸 앞에서 심을 수 있어요');return;
+  }
+  P.swing=.25;
+}
+function interact(o,i){
+  const tx=i%W,ty=Math.floor(i/W),cx=tx*TS+16,cy=ty*TS+20;
+  if(o.t==='tree'){
+    shakes.set(i,.5);snd('rustle');for(let k=0;k<6;k++)parts.push({x:cx+(rand()-.5)*24,y:cy-30-rand()*14,vx:(rand()-.5)*30,vy:-10,life:1,kind:'leaf'});
+    if(o.f&&o.n>0){
+      const got=addItem(o.f,o.n);if(!got){bagFull();return true}
+      o.n-=got;toast(`${ITEMS[o.f].name} <b>${got}개</b>를 땄어요`);snd('pick');register(o.f);
+    }else if(!o.sh&&rand()<.35){S.money+=100;toast('나무에서 도토리 주머니가 떨어졌어요! <b>+100</b>');snd('coin')}
+    else if(o.f)toast('오늘 열매는 다 땄어요. 내일 다시 열려요');
+    o.sh=true;markDirty();updateHUD();return true;
+  }
+  if(o.t==='rock'){
+    if(o.h>=3){toast('오늘은 돌멩이가 더 안 나올 것 같아요');return true}
+    if(!addItem('stone')){bagFull();return true}
+    o.h++;toast('돌을 두드려 <b>돌멩이</b>를 얻었어요');snd('pick');for(let k=0;k<5;k++)parts.push({x:cx,y:cy-6,vx:(rand()-.5)*80,vy:-60-rand()*40,life:.6,kind:'chip'});updateHUD();return true;
+  }
+  if(o.t==='shell'){const id=o.k;if(!addItem(id)){bagFull();return true}objs.delete(i);toast(`<b>${ITEMS[id].name}</b>${id==='clam'?'를':'를'} 주웠어요`);snd('pick');updateHUD();return true}
+  if(o.t==='weed'){if(!addItem('weed')){bagFull();return true}objs.delete(i);toast('잡초를 뽑았어요');snd('pick');for(let k=0;k<4;k++)parts.push({x:cx,y:cy,vx:(rand()-.5)*60,vy:-40,life:.6,kind:'leaf'});updateHUD();return true}
+  if(o.t==='flower'){toast(o.bud?'새싹이 자라고 있어요. 내일 꽃이 펴요':`${{red:'빨간',yellow:'노란',white:'하얀',pink:'분홍'}[o.c]} 꽃이 예쁘게 피었어요`);return true}
+  if(o.t==='sapling'){const left=2-dayDiff(o.d,dayKey());toast(`묘목이 자라는 중이에요. ${Math.max(1,left)}일 남았어요`);return true}
+  return false;
+}
+function houseDoor(){
+  openDialog({name:S.name||'나',tag:'#5f8f5a'},`우리 집이에요. 집 안 꾸미기는 다음 버전에서 열려요. 지금까지 낚거나 잡은 생물: ${S.caught||0}마리.`,[]);
+}
+
+/* fishing */
+function startFishing(tx,ty){
+  let bx=tx*TS+16,by=ty*TS+16;
+  if(isWater(tx+P.fx,ty+P.fy)){bx+=P.fx*18;by+=P.fy*18}
+  fishing={x:bx,y:by,water:tiles[ty*W+tx],phase:'wait',t:1.8+rand()*3.5,nib:0};snd('splash');
+  parts.push({x:bx,y:by,life:1,kind:'ring'});
+}
+function reel(){
+  if(fishing.phase==='bite'){
+    const id=pickFish(fishing.water),it=ITEMS[id];
+    if(!addItem(id)){bagFull();fishing=null;return}
+    if(id==='can'){toast('빈 깡통이 걸려 나왔어요…');snd('fail')}
+    else{toast(`<b>${jo(it.name,'을','를')}</b> 낚았다! (${fmt(it.price)} 도토리)`);snd('catch');S.caught=(S.caught||0)+1;register(id)}
+    for(let k=0;k<8;k++)parts.push({x:fishing.x,y:fishing.y,vx:(rand()-.5)*70,vy:-50-rand()*50,life:.7,kind:'drop'});
+    updateHUD();
+  }else toast('아무것도 걸리지 않았어요');
+  fishing=null;
+}
+function pickFish(w){
+  const h=hour(),night=h>=17||h<9;
+  return weighted(w===SEA?[['jack',30],['mackerel',25],['seabass',14],['flounder',12],['seabream',3],['can',9]]
+    :[['crucian',32],['minnow',26],['catfish',night?10:0],['mandarin',5],['can',8]]);
+}
+
+/* bugs */
+function bugPool(){const h=hour();if(h>=7&&h<17.5)return[['whitebf',35],['swallowtail',14],['dragonfly',30],['ladybug',21]];if(h>=17.5&&h<19)return[['dragonfly',50],['cricket',35],['whitebf',15]];return[['cricket',100]]}
+function spawnBug(){
+  const kind=weighted(bugPool());
+  if(kind==='ladybug'){
+    const fl=[...objs].filter(([i,o])=>o.t==='flower'&&!o.bud).map(([i])=>i).filter(i=>{const d=Math.hypot((i%W)*TS-P.x,Math.floor(i/W)*TS-P.y);return d>TS*4&&d<TS*13});
+    if(!fl.length)return;const i=pick(fl);bugs.push({kind,x:(i%W)*TS+12,y:Math.floor(i/W)*TS+12,z:0,t:rand()*9,ax:0,ay:0});return;
+  }
+  for(let k=0;k<20;k++){
+    const a=rand()*TAU,d=TS*(5+rand()*7),x=P.x+Math.cos(a)*d,y=P.y+Math.sin(a)*d,tx=Math.floor(x/TS),ty=Math.floor(y/TS);
+    if(tx<1||ty<1||tx>=W-1||ty>=H-1)continue;const v=tiles[ty*W+tx];
+    if(v===GRASS||(kind==='dragonfly'&&(v===POND||v===SAND))){bugs.push({kind,x,y,ax:x,ay:y,z:kind==='cricket'?0:14,t:rand()*9,flee:0,nx:x,ny:y,hop:1+rand()*2});return}
+  }
+}
+function catchBug(b){
+  P.swing=.3;
+  const chance=P.run?.45:.92;
+  if(rand()<chance){
+    if(!addItem(b.kind)){bagFull();return}
+    b.gone=true;toast(`<b>${jo(ITEMS[b.kind].name,'을','를')}</b> 잡았다! (${fmt(ITEMS[b.kind].price)} 도토리)`);snd('catch');S.caught=(S.caught||0)+1;register(b.kind);updateHUD();
+  }else{b.flee=2.5;toast('놓쳤어요… 천천히 다가가 보세요');snd('fail')}
+}
+
+/* dialog */
+function hearts(p){const n=Math.min(5,Math.floor(p/2));return '♥'.repeat(n)+'♡'.repeat(5-n)}
+function vLine(v){
+  const h=hour(),n=S.name||'친구',fr=S.friend[v.id]||{p:0};
+  const greet=h<5?`이 시간까지 안 자고 뭐 해, ${n}?`:h<11?`좋은 아침이야, ${n}!`:h<17?`어, ${n}! 오늘 날씨 좋다`:h<20?`노을이 예쁘지, ${n}?`:`밤바람이 선선하네, ${n}.`;
+  const pool=[...COMMON_LINES,...v.own];if(fr.p>=6)pool.push(`${n}, 너랑 이웃이라서 정말 좋아`);
+  return `${greet} ${pick(pool)} ${v.tic}!`;
+}
+function talk(v){
+  v.talking=true;const dx=P.x-v.x,dy=P.y-v.y;v.dir=Math.abs(dx)>Math.abs(dy)?(dx<0?'left':'right'):(dy<0?'up':'down');v.moving=false;
+  const fr=S.friend[v.id]=S.friend[v.id]||{p:0,talk:'',gift:''};
+  if(fr.talk!==S.day){fr.talk=S.day;fr.p++;markDirty()}
+  const acts=[];const s=S.sel>=0&&S.inv[S.sel];
+  if(s)acts.push({label:`${ITEMS[s.id].name} 선물하기`,primary:true,fn:()=>gift(v)});
+  acts.push({label:'또 봐!',fn:closeDialog});
+  openDialog({name:v.name,tag:v.tag,v},vLine(v),acts);
+}
+function gift(v){
+  const s=S.inv[S.sel];if(!s)return;const it=ITEMS[s.id],fr=S.friend[v.id];
+  removeAt(S.sel);let line;
+  if(it.cat==='junk'||s.id==='weed'){line=`음… 이건 좀 그렇다. 마음만 받을게 ${v.tic}.`}
+  else{
+    if(fr.gift!==S.day){fr.p+=it.price>=1000?4:2;fr.gift=S.day}
+    line=it.price>=1000?`이렇게 귀한 ${jo(it.name,'을','를')} 나한테?! 평생 아낄게 ${v.tic}!`
+      :(v.sp==='bear'&&it.cat==='fruit')?`${it.name}다! 딱 먹고 싶었어. 고마워 ${v.tic}!`
+      :`${it.name}, 고마워! 소중히 간직할게 ${v.tic}.`;
+    if(rand()<.35){const seed=pick(['seed_red','seed_yellow','seed_white','seed_pink']);if(addItem(seed)){line+=` 답례로 ${ITEMS[seed].name}를 줄게!`}}
+  }
+  snd('pick');markDirty();updateHUD();
+  openDialog({name:v.name,tag:v.tag,v},line,[{label:'또 봐!',fn:closeDialog}]);
+}
+function openDialog(who,text,acts){
+  closeSheet();panel='dialog';dlg={who,text,shown:0,acts,blip:0};
+  $('#dialog').hidden=false;$('#dlg-name').textContent=who.name;$('#dlg-name').style.background=who.tag;
+  $('#dlg-hearts').textContent=who.v?hearts((S.friend[who.v.id]||{p:0}).p):'';
+  $('#dlg-text').textContent='';
+  const box=$('#dlg-actions');box.innerHTML='';
+  if(!acts.length)acts=[{label:'닫기',fn:closeDialog}];
+  dlg.acts=acts;
+  acts.forEach(a=>{const b=document.createElement('button');b.className='btn'+(a.primary?' primary':'');b.textContent=a.label;b.onclick=e=>{e.stopPropagation();a.fn()};box.appendChild(b)});
+  setTouch();
+}
+function advanceDialog(){if(!dlg)return;if(dlg.shown<dlg.text.length){dlg.shown=dlg.text.length;$('#dlg-text').textContent=dlg.text}else closeDialog()}
+function closeDialog(){$('#dialog').hidden=true;if(dlg&&dlg.who.v)dlg.who.v.talking=false;dlg=null;if(panel==='dialog')panel=null;setTouch();cv.focus()}
+
+/* sheets: bag, shop, dex */
+let bagInfo='칸을 눌러 손에 들 물건을 고르세요. 꽃씨와 묘목은 손에 들고 풀밭 앞에서 A로 심어요. 들고 있는 물건은 이웃에게 선물할 수 있어요.';
+function openSheet(kind,title){closeDialog();panel=kind;$('#sheet').hidden=false;$('#sheet-title').textContent=title;renderSheet();setTouch()}
+function closeSheet(){if(panel&&panel!=='dialog'&&panel!=='intro')panel=null;$('#sheet').hidden=true;setTouch()}
+let shopTab='sell',sellAllArm=false;
+function renderSheet(){
+  const body=$('#sheet-body');body.innerHTML='';
+  if(panel==='bag'){
+    const g=document.createElement('div');g.className='grid';
+    S.inv.forEach((s,i)=>{const b=document.createElement('button');b.className='slot'+(s?'':' empty')+(S.sel===i?' sel':'');
+      if(s){b.appendChild(iconCanvas(s.id));if(s.n>1){const n=document.createElement('span');n.className='n';n.textContent=s.n;b.appendChild(n)}b.setAttribute('aria-label',ITEMS[s.id].name);
+        b.onclick=()=>{S.sel=S.sel===i?-1:i;const it=ITEMS[s.id];bagInfo=S.sel===i?`<b>${it.name}</b> · 팔면 ${fmt(it.price)} 도토리${it.cat==='seed'||s.id==='sapling'?' · 풀밭 앞에서 A로 심기':''} · 이웃에게 선물 가능`:'손에 든 것을 내려놓았어요.';updateHUD();renderSheet()}}
+      else b.disabled=true;g.appendChild(b)});
+    body.appendChild(g);const inf=document.createElement('div');inf.className='info';inf.innerHTML=bagInfo;body.appendChild(inf);
+  }else if(panel==='shop'){
+    const p=document.createElement('p');p.className='sub';p.textContent='오동(수달): 어서 오세요! 섬에서 찾은 건 뭐든 사 드려요.';body.appendChild(p);
+    const tabs=document.createElement('div');tabs.className='tabs';tabs.setAttribute('role','tablist');
+    for(const[k,l]of[['sell','팔기'],['buy','사기']]){const b=document.createElement('button');b.className='tab';b.setAttribute('role','tab');b.setAttribute('aria-selected',shopTab===k);b.textContent=l;b.onclick=()=>{shopTab=k;sellAllArm=false;renderSheet()};tabs.appendChild(b)}
+    body.appendChild(tabs);
+    if(shopTab==='sell'){
+      const g=document.createElement('div');g.className='grid';let total=0;
+      S.inv.forEach((s,i)=>{const b=document.createElement('button');b.className='slot'+(s?'':' empty');
+        if(s){total+=ITEMS[s.id].price*s.n;b.appendChild(iconCanvas(s.id));const n=document.createElement('span');n.className='n';n.textContent=s.n>1?`×${s.n}`:'';b.appendChild(n);b.title=`${ITEMS[s.id].name} · ${fmt(ITEMS[s.id].price)}`;
+          b.onclick=()=>{const it=ITEMS[s.id];S.money+=it.price;removeAt(i);toast(`${it.name} 1개를 <b>${fmt(it.price)}</b> 도토리에 팔았어요`);snd('coin');sellAllArm=false;updateHUD();renderSheet()}}
+        else b.disabled=true;g.appendChild(b)});
+      body.appendChild(g);
+      const bar=document.createElement('div');bar.className='sellbar';
+      bar.innerHTML=`<span class="sub" style="margin:0">칸을 누르면 1개씩 팔아요 · 가방 전체 ${fmt(total)} 도토리</span>`;
+      const all=document.createElement('button');all.className='btn primary';all.textContent=sellAllArm?'정말 모두 팔까요? 한 번 더 누르세요':'모두 팔기';all.disabled=!total;
+      all.onclick=()=>{if(!sellAllArm){sellAllArm=true;renderSheet();return}S.money+=total;S.inv=S.inv.map(()=>null);S.sel=-1;sellAllArm=false;toast(`전부 팔아서 <b>${fmt(total)}</b> 도토리를 받았어요`);snd('coin');markDirty();updateHUD();renderSheet()};
+      bar.appendChild(all);body.appendChild(bar);
+    }else{
+      const rows=document.createElement('div');rows.className='rows';
+      for(const id of SHOP_STOCK){const it=ITEMS[id];const r=document.createElement('div');r.className='row';r.appendChild(iconCanvas(id,72));
+        const t=document.createElement('div');t.className='t';t.innerHTML=`<div>${it.name}</div><div>${id==='sapling'?'심고 이틀 뒤 사과나무가 돼요':'심은 다음 날 꽃이 펴요'}</div>`;r.appendChild(t);
+        const pr=document.createElement('span');pr.className='price';pr.textContent=fmt(it.buy);r.appendChild(pr);
+        const b=document.createElement('button');b.className='btn primary';b.textContent='사기';b.disabled=S.money<it.buy;
+        b.onclick=()=>{if(S.money<it.buy)return;if(!addItem(id)){bagFull();return}S.money-=it.buy;toast(`<b>${it.name}</b>를 샀어요`);snd('coin');updateHUD();renderSheet()};
+        r.appendChild(b);rows.appendChild(r)}
+      body.appendChild(rows);
+    }
+  }else if(panel==='dex'){
+    const n=[...FISH_IDS,...BUG_IDS].filter(i=>S.dex[i]).length;
+    const p=document.createElement('p');p.className='sub';p.textContent=`모은 생물 ${n} / ${FISH_IDS.length+BUG_IDS.length}`;body.appendChild(p);
+    for(const[title,ids]of[['물고기',FISH_IDS],['곤충',BUG_IDS]]){
+      const h=document.createElement('h3');h.textContent=title;body.appendChild(h);
+      const g=document.createElement('div');g.className='dexgrid';
+      for(const id of ids){const it=ITEMS[id],d=document.createElement('div');d.className='dex';
+        if(S.dex[id]){d.appendChild(iconCanvas(id,88));d.insertAdjacentHTML('beforeend',`<div>${it.name}</div><small>${it.where} · ${fmt(it.price)}</small>`)}
+        else d.innerHTML=`<div class="q">?</div><div>???</div><small>${it.where}</small>`;
+        g.appendChild(d)}
+      body.appendChild(g);
+    }
+  }
+}
+function openShop(){
+  const h=hour();
+  if(h<8||h>=22){openDialog({name:'물방울 상점',tag:'#2f8fa8'},'문에 쪽지가 붙어 있어요. "영업시간 08:00–22:00. 내일 아침에 만나요! — 오동"',[]);return}
+  shopTab='sell';sellAllArm=false;openSheet('shop','물방울 상점');
+}
+
+/* ---------- touch ---------- */
+const isTouch=matchMedia('(pointer: coarse)').matches||'ontouchstart' in window;
+function setTouch(){$('#touch').hidden=!isTouch||(panel!==null&&panel!=='dialog');$('#hotbar').style.display=panel&&panel!=='dialog'?'none':''}
+(function(){
+  const st=$('#stick'),kn=$('#knob');let id=null,ox=0,oy=0;
+  st.addEventListener('pointerdown',e=>{id=e.pointerId;st.setPointerCapture(id);const r=st.getBoundingClientRect();ox=r.left+r.width/2;oy=r.top+r.height/2;move(e);e.preventDefault()});
+  const move=e=>{if(e.pointerId!==id)return;let dx=e.clientX-ox,dy=e.clientY-oy;const d=Math.hypot(dx,dy),m=46;if(d>m){dx*=m/d;dy*=m/d}kn.style.transform=`translate(${dx}px,${dy}px)`;jx=dx/m;jy=dy/m};
+  st.addEventListener('pointermove',move);
+  const end=e=>{if(e.pointerId!==id)return;id=null;jx=jy=0;kn.style.transform=''};
+  st.addEventListener('pointerup',end);st.addEventListener('pointercancel',end);
+  $('#btnA').addEventListener('pointerdown',e=>{e.preventDefault();action()});
+})();
+
+/* ---------- input ---------- */
+addEventListener('keydown',e=>{
+  if(e.target.tagName==='INPUT'){if(e.key==='Enter')startGame();return}
+  const k=e.key.toLowerCase();
+  if(['arrowup','arrowdown','arrowleft','arrowright',' '].includes(k))e.preventDefault();
+  if(e.repeat&&(k===' '||k==='e'||k==='z'))return;
+  if(k===' '||k==='e'||k==='z'||k==='enter'){if(e.target.tagName==='BUTTON'&&k==='enter')return;action();return}
+  if(k==='escape'){if(panel==='dialog')closeDialog();else if(panel&&panel!=='intro')closeSheet();return}
+  if(k==='i'||k==='tab'){e.preventDefault();if(panel==='bag')closeSheet();else if(!panel||panel==='bag')openSheet('bag','가방');return}
+  if(k==='c'){if(panel==='dex')closeSheet();else if(!panel)openSheet('dex','도감');return}
+  keys.add(k);
+});
+addEventListener('keyup',e=>keys.delete(e.key.toLowerCase()));
+addEventListener('blur',()=>keys.clear());
+$('#b-bag').onclick=()=>panel==='bag'?closeSheet():openSheet('bag','가방');
+$('#hotbar').onclick=()=>openSheet('bag','가방');
+$('#b-dex').onclick=()=>panel==='dex'?closeSheet():openSheet('dex','도감');
+$('#b-snd').onclick=()=>{S.sound=!S.sound;markDirty();updateHUD();snd('pick')};
+$('#b-help').onclick=()=>{$('#intro').hidden=false;panel='intro';$('#name-input').value=S.name||'';$('#start-btn').textContent=S.name?'계속하기':'섬 생활 시작';setTouch()};
+$('#sheet-close').onclick=()=>{closeSheet();cv.focus()};
+$('#dialog').addEventListener('click',()=>advanceDialog());
+$('#start-btn').onclick=startGame;
+function startGame(){
+  const v=$('#name-input').value.trim();S.name=v||S.name||'주민';
+  $('#intro').hidden=true;panel=null;markDirty();updateHUD();setTouch();cv.focus();snd('pick');
+}
+
+/* ---------- loop ---------- */
+let bugTimer=2,hudTimer=0,saveTimer=0,dayTimer=0;
+function update(dt){
+  T+=dt;
+  let ix=0,iy=0;
+  if(!panel||panel==='dialog'){
+    if(panel!=='dialog'){
+      if(keys.has('arrowleft')||keys.has('a'))ix--;if(keys.has('arrowright')||keys.has('d'))ix++;
+      if(keys.has('arrowup')||keys.has('w'))iy--;if(keys.has('arrowdown')||keys.has('s'))iy++;
+      ix+=jx;iy+=jy;
+    }
+  }
+  const mag=Math.hypot(ix,iy);
+  if(fishing&&mag>.2){fishing=null;toast('낚싯대를 거뒀어요')}
+  P.moving=false;
+  if(mag>.15&&!fishing){
+    const nx=ix/Math.max(1,mag),ny=iy/Math.max(1,mag);
+    P.run=keys.has('shift')||Math.hypot(jx,jy)>.92;
+    const sp=(P.run?175:105)*Math.min(1,mag)*dt;
+    if(Math.abs(nx)>Math.abs(ny)){P.dir=nx<0?'left':'right';P.fx=Math.sign(nx);P.fy=0}else{P.dir=ny<0?'up':'down';P.fx=0;P.fy=Math.sign(ny)}
+    const tryMove=(x,y)=>{if(!canStand(x,y))return false;for(const v of villagers){const d0=Math.hypot(P.x-v.x,P.y-v.y),d1=Math.hypot(x-v.x,y-v.y);if(d1<15&&d1<d0)return false}P.x=x;P.y=y;return true};
+    const mx=tryMove(P.x+nx*sp,P.y),my=tryMove(P.x,P.y+ny*sp);
+    if(mx||my){P.moving=true;P.phase+=dt*(P.run?16:11)}
+  }else P.run=false;
+  if(P.swing>0)P.swing-=dt;
+
+  for(const v of villagers){
+    v.moving=false;if(v.talking)continue;
+    if(v.wait>0){v.wait-=dt;continue}
+    if(v.tx===null){for(let k=0;k<10;k++){const tx=v.hx+Math.floor(rand()*11)-5,ty=v.hy+Math.floor(rand()*9)-4;if(walkable(tx,ty)){v.tx=tx*TS+16;v.ty=ty*TS+22;break}}if(v.tx===null){v.wait=2;continue}}
+    const dx=v.tx-v.x,dy=v.ty-v.y,d=Math.hypot(dx,dy);
+    if(d<3){v.tx=null;v.wait=2+rand()*5;continue}
+    const sp=38*dt,nx=v.x+dx/d*sp,ny=v.y+dy/d*sp;
+    v.dir=Math.abs(dx)>Math.abs(dy)?(dx<0?'left':'right'):(dy<0?'up':'down');
+    if(canStand(nx,ny)&&Math.hypot(nx-P.x,ny-P.y)>16){v.x=nx;v.y=ny;v.moving=true;v.phase+=dt*8;v.stuck=0}
+    else if((v.stuck+=dt)>1){v.tx=null;v.wait=1+rand()*2;v.stuck=0}
+  }
+
+  bugTimer-=dt;if(bugTimer<=0){bugTimer=3+rand()*3;if(bugs.length<4)spawnBug()}
+  for(const b of bugs){
+    b.t+=dt;const dp=Math.hypot(b.x-P.x,b.y-P.y);
+    if(dp>TS*17)b.gone=true;
+    if(!b.flee&&P.run&&dp<60&&b.kind!=='ladybug')b.flee=2.5;
+    if(b.flee){b.flee-=dt;const a=Math.atan2(b.y-P.y,b.x-P.x);const s=b.kind==='cricket'?110:140;b.x+=Math.cos(a)*s*dt;b.y+=Math.sin(a)*s*dt;if(b.kind!=='cricket')b.z=Math.min(40,b.z+30*dt);if(b.flee<=0){if(b.kind==='cricket'){b.flee=0}else b.gone=true}continue}
+    if(b.kind==='whitebf'||b.kind==='swallowtail'){b.ax+=Math.sin(b.t*.3)*8*dt;b.ay+=Math.cos(b.t*.23)*8*dt;b.x=b.ax+Math.sin(b.t*.9)*22;b.y=b.ay+Math.cos(b.t*1.3)*12;b.z=14+Math.sin(b.t*3)*4}
+    else if(b.kind==='dragonfly'){b.hop-=dt;if(b.hop<=0){b.hop=.8+rand()*1.6;b.nx=b.ax+(rand()-.5)*80;b.ny=b.ay+(rand()-.5)*60}b.x+=(b.nx-b.x)*Math.min(1,dt*5);b.y+=(b.ny-b.y)*Math.min(1,dt*5);b.z=16+Math.sin(b.t*2)*2}
+    else if(b.kind==='cricket'){b.hop-=dt;if(b.hop<=0){b.hop=1.5+rand()*2.5;const a=rand()*TAU;const nx=b.x+Math.cos(a)*20,ny=b.y+Math.sin(a)*20;if(walkable(Math.floor(nx/TS),Math.floor(ny/TS))){b.nx=nx;b.ny=ny;b.jt=.35}}if(b.jt>0){b.jt-=dt;b.x+=(b.nx-b.x)*dt*8;b.y+=(b.ny-b.y)*dt*8;b.z=Math.sin((b.jt/.35)*Math.PI)*10}else b.z=0}
+  }
+  bugs=bugs.filter(b=>!b.gone);
+
+  if(fishing){
+    fishing.t-=dt;
+    if(fishing.phase==='wait'){if(fishing.t<=0){if(rand()<.35&&!fishing.nibbled){fishing.nibbled=true;fishing.t=1+rand()*1.5;fishing.nib=.3;snd('blip')}else{fishing.phase='bite';fishing.t=.95;snd('bite');parts.push({x:fishing.x,y:fishing.y,life:1,kind:'ring'})}}}
+    else if(fishing.t<=0){toast('물고기가 도망쳤어요… "!" 가 뜨면 바로 눌러요');snd('fail');fishing=null}
+    if(fishing&&fishing.nib>0)fishing.nib-=dt;
+  }
+  for(const[k,v]of shakes){const n=v-dt;if(n<=0)shakes.delete(k);else shakes.set(k,n)}
+  for(const p of parts){p.life-=dt;if(p.kind!=='ring'){p.x+=(p.vx||0)*dt;p.y+=(p.vy||0)*dt;p.vy=(p.vy||0)+(p.kind==='leaf'?40:260)*dt}}
+  parts=parts.filter(p=>p.life>0);
+
+  if(dlg&&dlg.shown<dlg.text.length){const before=Math.floor(dlg.shown);dlg.shown+=dt*38;const now=Math.floor(dlg.shown);if(now!==before){$('#dlg-text').textContent=dlg.text.slice(0,now);if(now%3===0)snd('blip')}}
+
+  hudTimer-=dt;if(hudTimer<=0){hudTimer=1;$('#time')&&updateHUD()}
+  saveTimer-=dt;if(saveTimer<=0){saveTimer=3;if(dirty)saveNow()}
+  dayTimer-=dt;if(dayTimer<=0){dayTimer=10;dailyReset()}
+}
+
+function darkness(h){if(h>=19.5||h<4.5)return .58;if(h>=17.5)return (h-17.5)/2*.58;if(h<6.5)return (6.5-h)/2*.58;return 0}
+function warmth(h){if(h>=16.3&&h<19.5)return Math.sin((h-16.3)/3.2*Math.PI)*.16;if(h>=5&&h<7)return Math.sin((h-5)/2*Math.PI)*.1;return 0}
+
+function draw(){
+  const h=hour(),dark=darkness(h),lit=dark>.15;
+  ctx.setTransform(1,0,0,1,0,0);ctx.fillStyle='#2b86a8';ctx.fillRect(0,0,cv.width,cv.height);
+  const viewW=vw/zoom,viewH=vh/zoom;
+  camX=clamp(P.x-viewW/2,0,Math.max(0,W*TS-viewW));camY=clamp(P.y-20-viewH/2,0,Math.max(0,H*TS-viewH));
+  if(W*TS<viewW)camX=(W*TS-viewW)/2;if(H*TS<viewH)camY=(H*TS-viewH)/2;
+  const s=dpr*zoom;ctx.setTransform(s,0,0,s,-camX*s,-camY*s);
+  ctx.imageSmoothingEnabled=false;
+  const sx=Math.max(0,Math.floor(camX)),sy=Math.max(0,Math.floor(camY)),sw=Math.min(W*TS-sx,Math.ceil(viewW)+2),sh=Math.min(H*TS-sy,Math.ceil(viewH)+2);
+  ctx.drawImage(ground,sx,sy,sw,sh,sx,sy,sw,sh);
+  ctx.imageSmoothingEnabled=true;
+  const x0=Math.max(0,Math.floor(camX/TS)-1),y0=Math.max(0,Math.floor(camY/TS)-1),x1=Math.min(W-1,Math.ceil((camX+viewW)/TS)+1),y1=Math.min(H-1,Math.ceil((camY+viewH)/TS)+2);
+  ctx.strokeStyle='rgba(255,255,255,.55)';ctx.lineWidth=1.5;ctx.lineCap='round';
+  for(let y=y0;y<=y1;y++)for(let x=x0;x<=x1;x++){const v=tiles[y*W+x];if((v===SEA||v===POND)&&((x*7+y*13)%9===0)){const o=Math.sin(T*1.6+x+y)*3,X=x*TS+10+o,Y=y*TS+16;ctx.beginPath();ctx.moveTo(X,Y);ctx.quadraticCurveTo(X+5,Y-3,X+10,Y);ctx.stroke()}}
+  const sorted=[];
+  for(let y=y0;y<=y1;y++)for(let x=x0;x<=x1;x++){
+    const i=y*W+x,o=objs.get(i);if(!o)continue;const X=x*TS,Y=y*TS;
+    if(o.t==='flower'){drawFlower(ctx,X+11,Y+18,o.c,o.bud);if(!o.bud)drawFlower(ctx,X+22,Y+26,o.c,false)}
+    else if(o.t==='weed')drawWeed(ctx,X+16,Y+24);
+    else if(o.t==='shell')o.k==='clam'?drawClam(ctx,X+16,Y+20):drawShell(ctx,X+16,Y+20);
+    else if(o.t==='tree')sorted.push({y:Y+29,f:()=>drawTree(ctx,o,X,Y,shakes.get(i)||0)});
+    else if(o.t==='rock')sorted.push({y:Y+26,f:()=>drawRock(ctx,X+16,Y+22)});
+    else if(o.t==='sapling')sorted.push({y:Y+24,f:()=>drawSapling(ctx,X+16,Y+24)});
+  }
+  for(const b of bugs)if(b.kind==='ladybug'||(b.kind==='cricket'&&b.z<1))drawBug(ctx,b.kind,b.x,b.y,b.t);
+  for(const b of buildings){const shopLit=b.k==='shop'?(lit&&h>=8&&h<22):lit;sorted.push({y:(b.y+b.h)*TS,f:()=>b.k==='shop'?drawShop(ctx,b,shopLit):drawHouse(ctx,b,shopLit)})}
+  for(const v of villagers)sorted.push({y:v.y,f:()=>drawChar(ctx,v.x,v.y,{sp:v.sp,dir:v.dir,moving:v.moving,phase:v.phase,shirt:v.shirt})});
+  sorted.push({y:P.y,f:drawPlayer});
+  sorted.sort((a,b)=>a.y-b.y);for(const d of sorted)d.f();
+  for(const b of bugs)if(b.kind!=='ladybug'&&!(b.kind==='cricket'&&b.z<1)){ell(ctx,b.x,b.y,4,1.6,'rgba(20,50,20,.18)');drawBug(ctx,b.kind,b.x,b.y-b.z,b.t)}
+  if(fishing){
+    const hx=P.x+P.fx*10,hy=P.y-14+(P.fy<0?-4:0),dip=fishing.phase==='bite'?3+Math.sin(T*30)*1.5:fishing.nib>0?2:Math.sin(T*3)*1;
+    ctx.strokeStyle='rgba(40,40,40,.6)';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(hx+P.fx*10,hy-12);ctx.quadraticCurveTo((hx+fishing.x)/2,Math.min(hy,fishing.y)-14,fishing.x,fishing.y+dip-3);ctx.stroke();
+    ctx.strokeStyle='#8f6140';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(hx,hy);ctx.lineTo(hx+P.fx*10,hy-12);ctx.stroke();
+    circ(ctx,fishing.x,fishing.y+dip,3.6,'#fbfbf7');ctx.beginPath();ctx.arc(fishing.x,fishing.y+dip,3.6,Math.PI,TAU);ctx.fillStyle='#e2453c';ctx.fill();
+    if(fishing.phase==='bite'){const bx=P.x,by=P.y-50;ctx.fillStyle='#fffaf0';rr(ctx,bx-8,by-12,16,18,6);ctx.fill();ctx.fillStyle='#d9372d';ctx.font='15px Jua, sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText('!',bx,by-2)}
+  }
+  for(const p of parts){
+    if(p.kind==='ring'){ctx.strokeStyle=`rgba(255,255,255,${p.life})`;ctx.lineWidth=1.5;ctx.beginPath();ctx.ellipse(p.x,p.y,(1-p.life)*16+3,((1-p.life)*16+3)*.45,0,0,TAU);ctx.stroke()}
+    else if(p.kind==='leaf')ell(ctx,p.x,p.y,2.4,1.4,`rgba(86,169,87,${Math.min(1,p.life*2)})`,p.x*.1);
+    else if(p.kind==='chip')circ(ctx,p.x,p.y,1.6,'#adb5b6');
+    else circ(ctx,p.x,p.y,1.8,'rgba(220,245,255,.9)');
+  }
+  const f=frontPoint();
+  if(!panel&&!fishing){for(const v of villagers)if(Math.hypot(v.x-f.x,v.y-f.y)<30){ctx.font='11px Jua, sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';const w=ctx.measureText(v.name).width+12;ctx.fillStyle=v.tag;rr(ctx,v.x-w/2,v.y-52,w,15,7);ctx.fill();ctx.fillStyle='#fff';ctx.fillText(v.name,v.x,v.y-44.5)}}
+
+  ctx.setTransform(1,0,0,1,0,0);
+  const warm=warmth(h);
+  if(warm>0){ctx.fillStyle=`rgba(255,140,70,${warm})`;ctx.fillRect(0,0,cv.width,cv.height)}
+  if(dark>.01){
+    lx.globalCompositeOperation='source-over';lx.clearRect(0,0,lc.width,lc.height);lx.fillStyle=`rgba(16,24,62,${dark})`;lx.fillRect(0,0,lc.width,lc.height);
+    lx.globalCompositeOperation='destination-out';
+    const lights=[[P.x,P.y-16,80]];
+    for(const b of buildings){if(b.k==='house'){lights.push([b.x*TS+22,b.y*TS+63,46],[b.x*TS+74,b.y*TS+63,46])}else if(h>=8&&h<22){lights.push([b.x*TS+33,b.y*TS+65,56],[b.x*TS+127,b.y*TS+65,56])}}
+    for(const[wx,wy,r]of lights){const X=(wx-camX)*s,Y=(wy-camY)*s,R=r*s;const g=lx.createRadialGradient(X,Y,0,X,Y,R);g.addColorStop(0,'rgba(0,0,0,.9)');g.addColorStop(1,'rgba(0,0,0,0)');lx.fillStyle=g;lx.beginPath();lx.arc(X,Y,R,0,TAU);lx.fill()}
+    ctx.drawImage(lc,0,0);
+  }
+}
+function drawPlayer(){
+  drawChar(ctx,P.x,P.y,P);
+  if(P.swing>0){const a=P.swing/.3,cx=P.x+P.fx*14,cy=P.y-14+P.fy*10;ctx.strokeStyle='#8f6140';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(P.x+P.fx*6,P.y-14);ctx.lineTo(cx+(P.fy?(a-.5)*16:0),cy+(P.fx?(a-.5)*16:0));ctx.stroke();ctx.strokeStyle='rgba(255,255,255,.8)';ctx.beginPath();ctx.arc(cx+(P.fy?(a-.5)*16:0),cy+(P.fx?(a-.5)*16:0),6,0,TAU);ctx.stroke()}
+}
+
+function resize(){
+  dpr=Math.min(2,window.devicePixelRatio||1);vw=cv.clientWidth;vh=cv.clientHeight;
+  cv.width=Math.round(vw*dpr);cv.height=Math.round(vh*dpr);lc.width=cv.width;lc.height=cv.height;
+  const across=vw<640?11.5:vw<1100?17:21;zoom=clamp(Math.min(vw/(across*TS),vh/(9*TS)),1,3.2);
+}
+addEventListener('resize',resize);
+
+let last=0;
+function frame(t){const dt=Math.min(.05,(t-last)/1000||0);last=t;update(dt);draw();requestAnimationFrame(frame)}
+
+/* ---------- boot ---------- */
+function boot(data){
+  S=(data&&data.save&&data.save.v===1)?data.save:(loadLocal()||freshSave());
+  if(!Array.isArray(S.inv)||S.inv.length!==20)S.inv=Array(20).fill(null);
+  world=genWorld(S.seed);tiles=world.t;buildings=world.buildings;
+  if(S.objs){objs=new Map(S.objs)}else{objs=world.objs;spawnShells(9)}
+  ground=renderGround();
+  if(S.px&&canStand(S.px,S.py)){P.x=S.px;P.y=S.py}else{const d=buildings[1].door;P.x=d.x*TS+16;P.y=(d.y+1)*TS+20;P.dir='down';P.fy=1}
+  initVillagers();dailyReset();resize();updateHUD();setTouch();
+  if(!S.name){panel='intro';$('#intro').hidden=false;setTouch();setTimeout(()=>$('#name-input').focus(),50)}
+  else{toast(`다시 왔구나, <b>${S.name}</b>! 오늘도 즐거운 섬 생활`);cv.focus()}
+  if(document.fonts&&document.fonts.load)document.fonts.load('10px Jua').catch(()=>{});
+  requestAnimationFrame(frame);
+}
+addEventListener('pagehide',()=>{if(S)saveNow()});
+document.addEventListener('visibilitychange',()=>{if(document.hidden&&S)saveNow()});
+const hot=window.claude&&window.claude.hot;
+try{if(hot&&hot.snapshot)hot.snapshot(()=>({save:serialize()}))}catch(e){}
+if(hot&&hot.ready)hot.ready(boot);else boot((hot&&hot.data)||{});
+})();
+</script>
+</body>
+</html>
